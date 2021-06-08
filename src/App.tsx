@@ -1,6 +1,7 @@
 import React, {Component} from 'react';
 import './App.css';
 import {Container, Row, Col} from "react-bootstrap";
+import Select from 'react-select';
 
 interface MagicCardFace {
     name: string;
@@ -12,25 +13,38 @@ interface MagicCard {
     usdPrice: number;
 }
 
+interface SelectOption {
+    value: string;
+    label: string;
+}
+
 interface AppState {
     cards: MagicCard[];
     precons: { [key: string]: MagicCard };
-    selectedPrecon: string;
+    selectedPrecon: SelectOption | null;
     loading: boolean;
 }
 
 class App extends Component<{}, AppState> {
+    private selectPrecon = (selected: SelectOption | null) => {
+        if (selected) {
+            this.fetchBooster(selected.value);
+        }
+        this.setState({
+            selectedPrecon: selected
+        })
+    };
+
     constructor(props: {}) {
         super(props);
 
         this.state = {
             cards: [],
             precons: {},
-            selectedPrecon: '',
+            selectedPrecon: null,
             loading: false
         }
     }
-
 
     componentDidMount() {
         fetch('/api/precons/withCommander', {
@@ -65,34 +79,30 @@ class App extends Component<{}, AppState> {
         const cards = this.state.cards.map((c) => {
             return (
                 <Col xs={2} className="d-flex flex-column" key={c.faces[0].name}>
-                    <img
-                        src={'https://api.scryfall.com/cards/named?format=image&version=small&exact=' + c.faces[0].name}
-                        alt={c.faces[0].name}/>
+                    <CardImage card={c} size="small"/>
                 </Col>
             );
         })
         const precons = Object.entries(this.state.precons).map(([p, card]) => {
-            return <option key={p} value={p}>{card.faces[0].name} ({p})</option>
+            return {
+                value: p,
+                label: `${card.faces[0].name} (${p})`
+            }
         })
         return (
             <Container className="col-10 offset-1">
                 <div>
-                    <select className="form-control" value={this.state.selectedPrecon} onChange={(event => {
-                        this.setState({
-                            selectedPrecon: event.target.value
-                        });
-                        if (event.target.value !== '') {
-                            this.fetchBooster(event.target.value);
-                        }
-                    })}>
-                        <option value=""/>
-                        {precons}
-                    </select>
+                    <Select options={precons} isSearchable={true} value={this.state.selectedPrecon} isMulti={false}
+                            onChange={this.selectPrecon}/>
                 </div>
 
-                {this.state.selectedPrecon !== '' && !this.state.loading ?
+                {this.state.selectedPrecon && !this.state.loading ?
                     <button type="button" className="btn btn-primary"
-                            onClick={() => this.fetchBooster(this.state.selectedPrecon)}>Regenerate</button> : <div/>}
+                            onClick={() => {
+                                const value = this.state.selectedPrecon?.value;
+                                if (value)
+                                    this.fetchBooster(value);
+                            }}>Regenerate</button> : <div/>}
 
                 {this.state.loading ? (
                     <div>Loading</div>
@@ -104,7 +114,12 @@ class App extends Component<{}, AppState> {
             </Container>
         );
     }
+}
 
+function CardImage(props: { card: MagicCard, size: 'small' | 'normal' | 'large' | 'png' }) {
+    return <img
+        src={'https://api.scryfall.com/cards/named?format=image&version=' + props.size + '&exact=' + props.card.faces[0].name}
+        alt={props.card.faces[0].name}/>
 }
 
 export default App;
