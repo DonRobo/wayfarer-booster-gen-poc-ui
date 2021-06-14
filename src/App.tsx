@@ -1,7 +1,8 @@
-import React, {Component} from 'react';
+import React, {Component, useState} from 'react';
 import './App.css';
 import {Container, Row, Col} from "react-bootstrap";
 import Select from 'react-select';
+import axios from "axios";
 
 interface MagicCardFace {
     name: string;
@@ -23,6 +24,8 @@ interface AppState {
     precons: { [key: string]: MagicCard };
     selectedPrecon: SelectOption | null;
     loading: boolean;
+
+    boosterConfig:any;
 }
 
 class App extends Component<{}, AppState> {
@@ -42,34 +45,34 @@ class App extends Component<{}, AppState> {
             cards: [],
             precons: {},
             selectedPrecon: null,
-            loading: false
+            loading: false,
+            boosterConfig:{},
         }
     }
 
     componentDidMount() {
-        fetch('/api/precons/withCommander', {
-            headers: [
-                ['Accept', 'application/json'],
-            ]
-        })
-            .then(res => res.json())
-            .then((data) => {
-                this.setState({precons: data})
-            })
-            .catch(console.log);
+        axios.get('/api/precons/withCommander', {
+            headers: {
+                'Accept': 'application/json'
+            }
+        }).then(({data}) => {
+            this.setState({precons: data})
+        }).catch(console.log);
     }
 
     private fetchBooster(precon: string) {
         this.setState({
             loading: true
         });
-        fetch('/api/booster/generateBooster?deckName=' + precon, {
-            headers: [
-                ['Accept', 'application/json'],
-            ]
+        axios.get('/api/booster/generateBooster', {
+            headers: {
+                'Accept': 'application/json'
+            }, params: {
+                deckName: precon,
+                useEuro: true,
+            }
         })
-            .then(res => res.json())
-            .then((data) => {
+            .then(({data}) => {
                 this.setState({cards: data, loading: false})
             })
             .catch(console.log);
@@ -94,6 +97,7 @@ class App extends Component<{}, AppState> {
                 <div>
                     <Select options={precons} isSearchable={true} value={this.state.selectedPrecon} isMulti={false}
                             onChange={this.selectPrecon}/>
+                    {/*<RequestOptions/>*/}
                 </div>
 
                 {this.state.selectedPrecon && !this.state.loading ?
@@ -120,6 +124,31 @@ function CardImage(props: { card: MagicCard, size: 'small' | 'normal' | 'large' 
     return <img
         src={'https://api.scryfall.com/cards/named?format=image&version=' + props.size + '&exact=' + props.card.faces[0].name}
         alt={props.card.faces[0].name}/>
+}
+
+const RequestOptions = () => {
+    const [inputValues, setInputValues] = useState<{ [x: string]: string }>({})
+
+    const handleInputChange = (e: React.FormEvent<HTMLInputElement>) => {
+        const {name, value} = e.currentTarget
+        setInputValues(prevState => ({...prevState, [name]: value}))
+    }
+
+    return (
+        <div>
+            <Row>
+                <Col xs={1}>Budget</Col>
+                <input className="col-2" name="budget" type="text" value={inputValues.budget ? inputValues.budget : ''}
+                       onChange={handleInputChange}/>
+            </Row>
+            <Row>
+                <Col xs={1}>Randomness</Col>
+                <input className="col-2" name="randomness" type="text"
+                       value={inputValues.randomness ? inputValues.randomness : ''}
+                       onChange={handleInputChange}/>
+            </Row>
+        </div>
+    );
 }
 
 export default App;
